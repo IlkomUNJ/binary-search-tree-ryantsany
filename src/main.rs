@@ -18,45 +18,19 @@ fn test_binary_search_tree(){
     let rootlink: BstNodeLink = BstNode::new_bst_nodelink(15);
     rootlink.borrow_mut().add_left_child(&rootlink, 6);
     rootlink.borrow_mut().add_right_child(&rootlink, 18);
-
-    //add right subtree
-    let right_subtree: &Option<BstNodeLink> = &rootlink.borrow().right;
-    if let Some(right_tree_extract) = right_subtree {
-        right_tree_extract
-            .borrow_mut()
-            .add_left_child(right_tree_extract, 17);
-        right_tree_extract
-            .borrow_mut()
-            .add_right_child(right_tree_extract, 20);
+    
+    // Insert
+    let keys = vec![17, 20, 3, 7, 2, 4, 13, 14, 19, 21, 1];
+    for &key in keys.iter() {
+        BstNode::tree_insert(&rootlink, key);
     }
-
-    //add left subtree
-    let left_subtree: &Option<BstNodeLink> = &rootlink.borrow().left;
-    if let Some(left_tree_extract) = left_subtree {
-        left_tree_extract
-            .borrow_mut()
-            .add_left_child(left_tree_extract, 3);
-        left_tree_extract
-            .borrow_mut()
-            .add_right_child(left_tree_extract, 7);
-
-        //add left subtree terminal
-        let left_subtree_terminal = &left_tree_extract.borrow().left;
-        if let Some(terminal_left_tree_link) = left_subtree_terminal{
-            terminal_left_tree_link.borrow_mut().add_left_child(terminal_left_tree_link, 2);
-            terminal_left_tree_link.borrow_mut().add_right_child(terminal_left_tree_link, 4);
-        }
-        //add 2nd level right subtree of node 7
-        let second_right_subtree = &left_tree_extract.borrow().right;
-        if let Some(second_right_subtree_link) = second_right_subtree{
-            second_right_subtree_link.borrow_mut().add_right_child(second_right_subtree_link, 13);
-
-            let third_left_subtree = &second_right_subtree_link.borrow().right;
-            if let Some(third_left_subtree_link) = third_left_subtree{
-                third_left_subtree_link.borrow_mut().add_left_child(third_left_subtree_link, 9);
-            }
-        }
-    }
+    let after_insert_path = "after_insert.dot";
+    generate_dotfile_bst(&rootlink, after_insert_path);
+    
+    // Delete
+    rootlink.borrow_mut().tree_delete(3);
+    let after_delete_path = "after_delete.dot";
+    generate_dotfile_bst(&rootlink, after_delete_path);
 
     //print the tree at this time
     let main_tree_path = "bst_graph.dot";

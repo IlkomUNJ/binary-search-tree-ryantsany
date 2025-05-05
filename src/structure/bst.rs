@@ -219,4 +219,160 @@ impl BstNode {
             Some(x) => Some(x.upgrade().unwrap()),
         }
     }
+
+    pub fn tree_insert(node_link: &BstNodeLink, value: i32) {
+        if value < node_link.borrow().key.unwrap() {
+            let left_node;
+            {
+                let node = node_link.borrow();
+                left_node = node.left.clone();
+            }
+
+            if let Some(left) = left_node {
+                BstNode::tree_insert(&left, value);
+            } else {
+                node_link.borrow_mut().add_left_child(node_link, value);
+            }
+        } else {
+            let right_node;
+           {
+                let node = node_link.borrow();
+                right_node = node.right.clone();
+            }
+    
+            if let Some(right) = right_node {
+                BstNode::tree_insert(&right, value);
+            } else {
+                node_link.borrow_mut().add_right_child(node_link, value);
+            }
+        }
+    }
+
+    fn transplant(&mut self, u: Option<BstNodeLink>, v: Option<BstNodeLink>){
+        let left_node = self.left.clone();
+        if left_node.is_some() && BstNode::is_node_match_option(left_node, u.clone()){
+            if v.is_none() {
+                 self.left = v.clone();
+            } else {
+                if let Some(new_node) = v.clone() {
+                    if let Some(old_node) = u.clone() {
+                        new_node.borrow_mut().parent = old_node.borrow().parent.clone();
+                        self.left = Some(new_node.clone());
+                    }
+                }
+            }
+        }
+
+        let right_node = self.right.clone();
+        if right_node.is_some() && BstNode::is_node_match_option(right_node, u.clone()){
+            if v.is_none(){
+                self.right = v.clone();
+            } else {
+                if let Some(new_node) = v.clone(){
+                    if let Some(old_node) = u.clone() {
+                        new_node.borrow_mut().parent = old_node.borrow().parent.clone();
+                        self.right = Some(new_node);
+                    }
+                }
+            }
+        }
+
+        if v.is_some(){
+            if let Some(new_node) = v {
+                if let Some(old_node) = u{
+                    new_node.borrow_mut().parent = old_node.borrow().parent.clone();
+                }
+            }
+        }
+    }
+
+    pub fn tree_delete(&mut self, value: i32){
+        let target_node = self.tree_search(&value);
+        
+        if let Some(node) = target_node {
+            if node.borrow().left.is_some() && node.borrow().right.is_none() {
+                // only left exist
+                if node.borrow().parent.is_some(){
+                    let target = node.borrow().left.clone();
+                    let target_parent = BstNode::upgrade_weak_to_strong(node.borrow().parent.clone()).unwrap();
+                    let parent_left_child = target_parent.borrow().left.clone();
+                    let parent_right_child = target_parent.borrow().right.clone();
+                    if target.clone().unwrap().borrow().key.unwrap() < target_parent.clone().borrow().key.unwrap(){
+                        target_parent.borrow_mut().transplant(parent_left_child, target);
+                    } else {
+                        target_parent.borrow_mut().transplant(parent_right_child, target);
+                    }
+                }
+
+            } else if node.borrow().left.is_none() && node.borrow().right.is_some() {
+                // Only right exist
+                if node.borrow().parent.is_some(){
+                    let target = node.borrow().right.clone();
+                    let target_parent = BstNode::upgrade_weak_to_strong(node.borrow().parent.clone()).unwrap();
+                    let parent_left_child = target_parent.borrow().left.clone();
+                    let parent_right_child = target_parent.borrow().right.clone();
+                    if target.clone().unwrap().borrow().key.unwrap() < target_parent.clone().borrow().key.unwrap(){
+                        target_parent.borrow_mut().transplant(parent_left_child, target);
+                    } else {
+                        target_parent.borrow_mut().transplant(parent_right_child, target);
+                    }
+                }
+            } else if node.borrow().left.is_none() && node.borrow().right.is_none() {
+                // No child
+                if node.borrow().parent.is_some(){
+                    let parent = BstNode::upgrade_weak_to_strong(node.borrow().parent.clone()).unwrap();
+                    let parent_left_child = parent.borrow().left.clone();
+                    let parent_right_child = parent.borrow().right.clone();
+                    if value < parent.clone().borrow().key.unwrap(){
+                        parent.borrow_mut().transplant(parent_left_child, None);
+                    } else {
+                        parent.borrow_mut().transplant(parent_right_child, None);
+                    }
+                } else {
+                    self.key = None;
+                }
+            } else if node.borrow().left.is_some() && node.borrow().right.is_some() {
+                let target = node.clone();
+                let target_right = target.borrow().right.clone();
+                let target_right_node = target_right.clone().unwrap();
+                let successor = BstNode::tree_successor(&target);
+
+                if let Some(successor_node) = successor.clone() {
+                    if !BstNode::is_node_match(&successor_node, &target_right_node) {
+                        let successor_right = successor_node.borrow().right.clone();
+                        let successor_parent = BstNode::upgrade_weak_to_strong(successor_node.borrow().parent.clone()).unwrap();
+                        let successor_parent_left = successor_parent.borrow().left.clone();
+                        let successor_parent_right = successor_parent.borrow().right.clone();
+
+                        if successor_node.borrow().key.unwrap() < successor_parent.borrow().key.unwrap() {
+                            successor_parent.borrow_mut().transplant(successor_parent_left, successor_right.clone());
+                        } else {
+                            successor_parent.borrow_mut().transplant(successor_parent_right, successor_right.clone());
+                        }
+
+                        successor_node.borrow_mut().right = Some(target_right_node.clone());
+                        target_right_node.borrow_mut().parent = Some(BstNode::downgrade(&successor_node));
+                    }
+
+                    let target_left = target.borrow().left.clone().unwrap();
+                    successor_node.borrow_mut().left = Some(target_left.clone());
+                    target_left.borrow_mut().parent = Some(BstNode::downgrade(&successor_node));
+
+                    if target.borrow().parent.is_none() {
+                        *self = (*successor_node.borrow()).clone();
+                    } else {
+                        let target_parent = BstNode::upgrade_weak_to_strong(target.borrow().parent.clone()).unwrap();
+                        let parent_left = target_parent.borrow().left.clone();
+                        let parent_right = target_parent.borrow().right.clone();
+
+                        if target.borrow().key.unwrap() < target_parent.borrow().key.unwrap() {
+                            target_parent.borrow_mut().transplant(parent_left, Some(successor_node.clone()));
+                        } else {
+                            target_parent.borrow_mut().transplant(parent_right, Some(successor_node.clone()));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
